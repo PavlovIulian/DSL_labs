@@ -123,6 +123,33 @@ class FiniteAutomaton:
             for symbol, next_state in sorted(transitions.items()):
                 print(f"  δ({state}, {symbol}) = {next_state}")
 
+    def trace_string(self, input_string):
+        """Trace the path through the automaton for a given string"""
+        if not input_string:
+            print(f"Empty string. Start state {self.q0} is {'in' if self.q0 in self.F else 'not in'} F")
+            return
+
+        current_state = self.q0
+        print(f"Start: {current_state}")
+
+        for i, char in enumerate(input_string):
+            if char not in self.Sigma:
+                print(f"  Character '{char}' not in alphabet - REJECT")
+                return
+
+            if current_state not in self.delta or char not in self.delta[current_state]:
+                print(f"  No transition from {current_state} on '{char}' - REJECT")
+                return
+
+            next_state = self.delta[current_state][char]
+            print(f"  Read '{char}': {current_state} → {next_state}")
+            current_state = next_state
+
+        if current_state in self.F:
+            print(f"End state {current_state} is in F - ACCEPT")
+        else:
+            print(f"End state {current_state} is not in F - REJECT")
+
 
 def main():
     # Create grammar instance
@@ -150,6 +177,13 @@ def main():
     fa = grammar.to_finite_automaton()
     fa.display_automaton()
 
+    # Analysis of the language
+    print("\n=== Language Analysis ===")
+    print("Derivation paths to understand the language:")
+    print("  Shortest path: S -> aA -> aB -> bC -> b  (produces 'aabb')")
+    print("  With loop: S -> aA -> bS -> aA -> aB -> bC -> b  (produces 'abaabb')")
+    print("  Pattern: strings must start with 'a' and end with 'bb'")
+
     # Task 3: Test the finite automaton
     print("\n=== Testing Finite Automaton ===")
 
@@ -160,26 +194,42 @@ def main():
         status = "✓ ACCEPTED" if result else "✗ REJECTED"
         print(f"  '{string}': {status}")
 
-    # Test with additional strings
+    # Test with additional strings - corrected based on actual language
     print("\nTesting additional strings:")
     test_strings = [
-        'ab',  # Should be accepted: S->aA, A->b (via C->b path)
-        'aab',  # Should be accepted
-        'aaab',  # Should be accepted
-        'abab',  # Should be accepted
-        'ba',  # Should be rejected (can't start with 'b')
-        'aa',  # Should be rejected (can't end with 'a')
-        'abb',  # Should be rejected
-        '',  # Empty string - rejected
+        ('aabb', True),  # Minimal valid string: S->aA->aB->bC->b
+        ('abaabb', True),  # S->aA->bS->aA->aB->bC->b
+        ('ababaabb', True),  # S->aA->bS->aA->bS->aA->aB->bC->b
+        ('ab', False),  # Too short - must end with 'bb'
+        ('aaab', False),  # Doesn't end with 'bb'
+        ('aabbb', False),  # Has 'bbb' at the end
+        ('ba', False),  # Must start with 'a'
+        ('aa', False),  # Must end with 'bb'
+        ('abb', False),  # Must end with 'bb' (only has one 'b')
+        ('', False),  # Empty string not in language
     ]
 
-    for string in test_strings:
+    for string, expected in test_strings:
         result = fa.string_belong_to_language(string)
         status = "✓ ACCEPTED" if result else "✗ REJECTED"
-        print(f"  '{string}': {status}")
+        match = "✓" if result == expected else "✗ MISMATCH"
+        print(f"  '{string}': {status} (expected: {'ACCEPT' if expected else 'REJECT'}) {match}")
+
+    # Detailed trace for specific examples
+    print("\n=== Detailed Trace Examples ===")
+    print("\nTrace for 'aabb':")
+    fa.trace_string('aabb')
+
+    print("\nTrace for 'abaabb':")
+    fa.trace_string('abaabb')
+
+    print("\nTrace for 'ab' (should fail):")
+    fa.trace_string('ab')
 
     # Interactive testing
     print("\n=== Interactive Testing ===")
+    print("Note: Valid strings must start with 'a' and end with 'bb'")
+    print("Examples: aabb, abaabb, ababaabb")
     while True:
         user_input = input("\nEnter a string to check (or 'quit' to exit): ")
         if user_input.lower() == 'quit':
@@ -190,6 +240,11 @@ def main():
             print(f"✓ String '{user_input}' BELONGS to the language")
         else:
             print(f"✗ String '{user_input}' does NOT belong to the language")
+
+        # Optionally show trace
+        show_trace = input("Show trace? (y/n): ")
+        if show_trace.lower() == 'y':
+            fa.trace_string(user_input)
 
 
 if __name__ == "__main__":
