@@ -1,7 +1,7 @@
 # Lab 2 – Determinism in Finite Automata
 
 **Course:** Formal Languages & Finite Automata
-**Author:** Cretu Dumitru
+**Author:** Iulian Pavlov
 
 ---
 
