@@ -1,4 +1,4 @@
-# Lab 1 — Lexer / Scanner
+# Lab 3 — Lexer / Scanner
 
 **Course:** Formal Languages & Finite Automata
 **Author:** Iulian Pavlov
@@ -53,6 +53,8 @@ The lexer recognises the following categories of tokens:
 |---|---|---|
 | Literals | `INTEGER`, `FLOAT`, `STRING`, `IDENTIFIER` | `42`, `3.14`, `"hello"`, `myVar` |
 | Keywords | `LET`, `FN`, `RETURN`, `IF`, `ELSE`, `TRUE`, `FALSE`, `WHILE`, `FOR` | `let`, `fn`, `return` |
+| Trigonometric | `SIN`, `COS` | `sin`, `cos` |
+| Trigonometric | `SIN`, `COS` | `sin`, `cos` |
 | Arithmetic | `PLUS`, `MINUS`, `STAR`, `SLASH`, `PERCENT`, `CARET` | `+ - * / % ^` |
 | Comparison | `EQ`, `NEQ`, `LT`, `GT`, `LTE`, `GTE` | `== != < > <= >=` |
 | Assignment | `ASSIGN` | `=` |
@@ -97,6 +99,10 @@ class TokenType(Enum):
     IDENTIFIER = auto()    # e.g. myVar
     LET        = auto()    # keyword: let
     FN         = auto()    # keyword: fn
+    SIN        = auto()    # trigonometric: sin
+    COS        = auto()    # trigonometric: cos
+    SIN        = auto()    # trigonometric: sin
+    COS        = auto()    # trigonometric: cos
     # ... (all remaining types)
     EOF        = auto()    # end of input
     ILLEGAL    = auto()    # unrecognised character
@@ -136,9 +142,9 @@ The `Lexer` class takes a source string and exposes one public method, `tokenize
 The core dispatch loop in `_next_token()` handles cases in this priority order:
 
 1. **Whitespace and comments** — skipped silently. Both `//` single-line and `/* */` multi-line comment styles are supported.
-2. **Digits** — `_read_number()` collects all consecutive digits and optional decimal point, then parses to `int` or `float`.
+2. **Digits or leading dot** — `_read_number()` collects digits, an optional decimal point, and numeric separators (`1_000`). Parses to `int` or `float`. Also handles leading-dot floats like `.5`.
 3. **Double quote** — `_read_string()` collects characters until the closing quote, handling escape sequences (`\n`, `\t`, `\\`, `\"`).
-4. **Letter or underscore** — `_read_identifier()` collects the full word, then checks the `KEYWORDS` dictionary to determine whether it is a keyword or a plain identifier.
+4. **Letter or underscore** — `_read_identifier()` collects the full word, then checks the `KEYWORDS` dictionary. This covers regular keywords (`let`, `fn`, etc.) **and** trigonometric names (`sin`, `cos`), which are treated as first-class keywords.
 5. **Two-character operators** — `_peek_two()` reads ahead without consuming; matches `==`, `!=`, `<=`, `>=`, `&&`, `||`.
 6. **Single-character operators and delimiters** — looked up in the `SINGLE_CHAR` dictionary.
 7. **Anything else** — `ILLEGAL` token emitted; processing continues.
@@ -195,7 +201,17 @@ The `Lexer` starts at position 0 with `_line=1, _column=1` and processes the inp
 | 14 | `;` | `SINGLE_CHAR` | `SEMICOLON ';' [1:30]` |
 | 15 | (end) | `_at_end() == True` | `EOF None [1:31]` |
 
-Final token stream:
+### Trigonometric example
+
+```
+let result = sin(3.14) + cos(.5);
+```
+
+Produces: `LET`, `IDENTIFIER('result')`, `ASSIGN`, `SIN('sin')`, `LPAREN`, `FLOAT(3.14)`, `RPAREN`, `PLUS`, `COS('cos')`, `LPAREN`, `FLOAT(0.5)`, `RPAREN`, `SEMICOLON`, `EOF`
+
+Note that `sin` and `cos` become their own dedicated token types rather than plain `IDENTIFIER` tokens, so the parser can handle them specifically without string comparisons.
+
+### Original example — final token stream:
 ```
 [LET, IDENTIFIER('average'), ASSIGN, LPAREN, IDENTIFIER('min'),
  PLUS, IDENTIFIER('max'), RPAREN, SLASH, INTEGER(2), SEMICOLON, EOF]

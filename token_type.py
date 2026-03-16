@@ -19,6 +19,10 @@ class TokenType(Enum):
     WHILE      = auto()
     FOR        = auto()
 
+    # Trigonometric functions
+    SIN        = auto()
+    COS        = auto()
+
     # Math operators
     PLUS       = auto()
     MINUS      = auto()
@@ -54,7 +58,6 @@ class TokenType(Enum):
     SEMICOLON  = auto()   # ;
     COLON      = auto()   # :
     DOT        = auto()   # .
-    QUESTION   = auto()
 
     # Special
     EOF        = auto()

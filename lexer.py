@@ -15,6 +15,9 @@ KEYWORDS: dict[str, TokenType] = {
     "false":  TokenType.FALSE,
     "while":  TokenType.WHILE,
     "for":    TokenType.FOR,
+    # Trigonometric functions
+    "sin":    TokenType.SIN,
+    "cos":    TokenType.COS,
 }
 
 # Single-character tokens
@@ -34,7 +37,6 @@ SINGLE_CHAR: dict[str, TokenType] = {
     ",": TokenType.COMMA,
     ";": TokenType.SEMICOLON,
     ":": TokenType.COLON,
-    ".": TokenType.DOT,
 }
 
 
@@ -49,7 +51,7 @@ class Lexer:
 
     def __init__(self, source: str):
         self._source = source
-        self._pos = 0          # current character index
+        self._pos = 0
         self._line = 1
         self._column = 1
 
@@ -76,8 +78,8 @@ class Lexer:
 
         ch = self._current()
 
-        # --- Numbers ---
-        if ch.isdigit():
+        # --- Numbers (integer and float) ---
+        if ch.isdigit() or (ch == "." and self._peek_next().isdigit()):
             yield self._read_number()
             return
 
@@ -86,7 +88,7 @@ class Lexer:
             yield self._read_string()
             return
 
-        # --- Identifiers / keywords ---
+        # --- Identifiers / keywords (including sin, cos) ---
         if ch.isalpha() or ch == "_":
             yield self._read_identifier()
             return
@@ -94,23 +96,17 @@ class Lexer:
         # --- Two-character operators ---
         two = self._peek_two()
         if two == "==":
-            yield self._consume_two(TokenType.EQ, "==")
-            return
+            yield self._consume_two(TokenType.EQ, "==");    return
         if two == "!=":
-            yield self._consume_two(TokenType.NEQ, "!=")
-            return
+            yield self._consume_two(TokenType.NEQ, "!=");   return
         if two == "<=":
-            yield self._consume_two(TokenType.LTE, "<=")
-            return
+            yield self._consume_two(TokenType.LTE, "<=");   return
         if two == ">=":
-            yield self._consume_two(TokenType.GTE, ">=")
-            return
+            yield self._consume_two(TokenType.GTE, ">=");   return
         if two == "&&":
-            yield self._consume_two(TokenType.AND, "&&")
-            return
+            yield self._consume_two(TokenType.AND, "&&");   return
         if two == "||":
-            yield self._consume_two(TokenType.OR, "||")
-            return
+            yield self._consume_two(TokenType.OR, "||");    return
 
         # --- Single-character operators / delimiters ---
         if ch in SINGLE_CHAR:
@@ -119,24 +115,13 @@ class Lexer:
             return
 
         if ch == "=":
-            yield self._make_token(TokenType.ASSIGN, ch)
-            self._advance()
-            return
-
+            yield self._make_token(TokenType.ASSIGN, ch); self._advance(); return
         if ch == "<":
-            yield self._make_token(TokenType.LT, ch)
-            self._advance()
-            return
-
+            yield self._make_token(TokenType.LT, ch);     self._advance(); return
         if ch == ">":
-            yield self._make_token(TokenType.GT, ch)
-            self._advance()
-            return
-
+            yield self._make_token(TokenType.GT, ch);     self._advance(); return
         if ch == "!":
-            yield self._make_token(TokenType.BANG, ch)
-            self._advance()
-            return
+            yield self._make_token(TokenType.BANG, ch);   self._advance(); return
 
         # --- Illegal character ---
         tok = self._make_token(TokenType.ILLEGAL, ch)
@@ -148,17 +133,37 @@ class Lexer:
     # ------------------------------------------------------------------ #
 
     def _read_number(self) -> Token:
+        """
+        Read an integer or float literal.
+        Supports:  42  |  3.14  |  .5  |  1_000 (underscores as separators)
+        A leading minus is a separate MINUS token; the parser handles unary negation.
+        """
         start_col = self._column
         start_line = self._line
         buf: list[str] = []
         is_float = False
 
-        while not self._at_end() and (self._current().isdigit() or self._current() == "."):
-            if self._current() == ".":
-                if is_float:
-                    break           # second dot → stop
-                is_float = True
+        # Leading dot case: .5
+        if self._current() == ".":
+            is_float = True
             buf.append(self._advance())
+
+        while not self._at_end():
+            ch = self._current()
+            if ch.isdigit():
+                buf.append(self._advance())
+            elif ch == "_":
+                # Numeric separators like 1_000; underscore skipped in value
+                self._advance()
+            elif ch == "." and not is_float:
+                next_ch = self._peek_next()
+                if next_ch.isdigit() or next_ch == "":
+                    is_float = True
+                    buf.append(self._advance())
+                else:
+                    break
+            else:
+                break
 
         raw = "".join(buf)
         value = float(raw) if is_float else int(raw)
@@ -168,12 +173,12 @@ class Lexer:
     def _read_string(self) -> Token:
         start_col = self._column
         start_line = self._line
-        self._advance()             # consume opening "
+        self._advance()  # consume opening "
         buf: list[str] = []
 
         while not self._at_end() and self._current() != '"':
             if self._current() == "\\":
-                self._advance()     # consume backslash
+                self._advance()
                 escape_map = {"n": "\n", "t": "\t", "\\": "\\", '"': '"'}
                 esc = self._advance()
                 buf.append(escape_map.get(esc, esc))
@@ -183,7 +188,7 @@ class Lexer:
         if self._at_end():
             raise LexerError("Unterminated string literal", start_line, start_col)
 
-        self._advance()             # consume closing "
+        self._advance()  # consume closing "
         return Token(TokenType.STRING, "".join(buf), start_line, start_col)
 
     def _read_identifier(self) -> Token:
@@ -210,12 +215,10 @@ class Lexer:
             elif ch == "\n":
                 self._advance()
             elif ch == "/" and self._peek_two() == "//":
-                # Single-line comment: skip until newline
                 while not self._at_end() and self._current() != "\n":
                     self._advance()
             elif ch == "/" and self._peek_two() == "/*":
-                # Multi-line comment
-                self._advance(); self._advance()    # consume /*
+                self._advance(); self._advance()
                 while not self._at_end():
                     if self._peek_two() == "*/":
                         self._advance(); self._advance()
@@ -248,6 +251,12 @@ class Lexer:
 
     def _peek_two(self) -> str:
         return self._source[self._pos: self._pos + 2]
+
+    def _peek_next(self) -> str:
+        """Peek one character ahead without consuming."""
+        if self._pos + 1 < len(self._source):
+            return self._source[self._pos + 1]
+        return ""
 
     def _at_end(self) -> bool:
         return self._pos >= len(self._source)
