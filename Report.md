@@ -101,8 +101,6 @@ class TokenType(Enum):
     FN         = auto()    # keyword: fn
     SIN        = auto()    # trigonometric: sin
     COS        = auto()    # trigonometric: cos
-    SIN        = auto()    # trigonometric: sin
-    COS        = auto()    # trigonometric: cos
     # ... (all remaining types)
     EOF        = auto()    # end of input
     ILLEGAL    = auto()    # unrecognised character
