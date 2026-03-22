@@ -1,285 +1,183 @@
-# Lab 1 – Regular Grammars & Finite Automata
+# Lab 4 — Regular Expression String Generator
 
-**Course:** Formal Languages & Finite Automata
-**Author:** Cretu Dumitru
-
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [The Grammar](#the-grammar)
-3. [Grammar → Finite Automaton Conversion](#grammar--finite-automaton-conversion)
-4. [Implementation](#implementation)
-5. [Testing](#testing)
-6. [Challenges Encountered](#challenges-encountered)
-7. [Conclusions](#conclusions)
+**Course:** Formal Languages & Finite Automata  
+**Author:** Iulian Pavlov  
+**Variant:** 1
 
 ---
 
 ## Overview
 
-This lab covers converting a regular grammar into a finite automaton and using it to validate strings. The grammar defines a formal language, and the FA acts as a recognizer — accepting strings that belong to the language and rejecting those that do not.
+This lab implements a **regular expression interpreter and string generator**.
+Given a regex pattern as input, the program parses it into an Abstract Syntax Tree
+(AST) and randomly generates valid strings that belong to the language described
+by that pattern.
+
+The approach is fully dynamic — the pattern is interpreted at runtime, not
+hardcoded. Any pattern using the supported syntax will work.
 
 ---
 
-## The Grammar
+## Variant 1 Patterns
 
-```
-VN = {S, A, B, C}       — non-terminals (states)
-VT = {a, b}             — terminals (alphabet)
-Start symbol: S
-
-Production rules:
-  S → aA
-  A → bS | aB
-  B → bC
-  C → aA | b
-```
-
-### What does this language generate?
-
-All strings produced by this grammar follow the pattern **`a(ba)*abb`**:
-
-- Every string starts with `a`
-- Every string ends with `bb`
-- The middle section is zero or more repetitions of `ba`
-
-| String     | Valid? | Reason                         |
-|------------|--------|--------------------------------|
-| `aabb`     | ✓      | Minimum valid string (0 loops) |
-| `abaabb`   | ✓      | One `ba` loop                  |
-| `ababaabb` | ✓      | Two `ba` loops                 |
-| `ab`       | ✗      | Missing final `b`              |
-| `aaab`     | ✗      | Ends with single `b`           |
-| `ba`       | ✗      | Starts with `b`                |
-| `abb`      | ✗      | Doesn't follow pattern         |
+| # | Pattern | Example outputs |
+|---|---------|-----------------|
+| 1 | `(a\|b)(c\|d)E+G?` | `acEEE`, `bdE`, `adEEG` |
+| 2 | `P(Q\|R\|S)T(UV\|W\|X)*Z+` | `PQTUVUVZ`, `PRTWWWZ`, `PSTZ` |
+| 3 | `1(0\|1)*2(3\|4){5}36` | `1023333336`, `124344436` |
 
 ---
 
-## Grammar → Finite Automaton Conversion
-
-The conversion follows a straightforward rule set:
-
-- Each non-terminal becomes a state
-- One extra final state `F` is added
-- For a rule `X → aY` → add transition `δ(X, a) = Y`
-- For a rule `X → a` → add transition `δ(X, a) = F`
-
-### Resulting FA
+## Project Structure
 
 ```
-States:      {S, A, B, C, F}
-Alphabet:    {a, b}
-Start state: S
-Final state: {F}
-
-Transitions:
-  δ(S, a) = A     (from S → aA)
-  δ(A, b) = S     (from A → bS)
-  δ(A, a) = B     (from A → aB)
-  δ(B, b) = C     (from B → bC)
-  δ(C, a) = A     (from C → aA)
-  δ(C, b) = F     (from C → b)
+nodes.py       — AST node dataclasses (Literal, Alternation, Concatenation, Repetition)
+parser.py      — RegexParser: pattern string → AST
+generator.py   — RegexGenerator, RegexTracer, and convenience functions
+main.py        — demo entry point
+README.md      — this file
 ```
 
-### Example Trace — `abaabb`
+Each file has a single responsibility and the dependency flow is strictly one-way:
 
 ```
-Start: S
-  Read 'a' → S → A
-  Read 'b' → A → S   (loop back)
-  Read 'a' → S → A
-  Read 'a' → A → B
-  Read 'b' → B → C
-  Read 'b' → C → F
-End at F → ACCEPT ✓
-```
-
-Grammar derivation for the same string:
-```
-S ⇒ aA ⇒ abS ⇒ abaA ⇒ abaaB ⇒ abaabC ⇒ abaabb
+main.py  →  parser.py  →  nodes.py
+         →  generator.py  →  nodes.py
 ```
 
 ---
 
-## Implementation
+## How It Works
 
-### Project Structure
+### 1. Parsing → AST
 
-```
-grammar_corrected.py    — Main implementation
-README.md               — This file
-```
-
-### Grammar Class
-
-The `Grammar` class stores the production rules and provides two core methods.
-
-**String Generation** — `generate_string()` starts from the start symbol and repeatedly replaces the leftmost non-terminal with a randomly chosen production until only terminals remain. A `max_steps` guard prevents infinite loops on recursive paths like `A → bS`.
-
-```python
-def generate_string(self, max_steps=50):
-    current = self.start
-
-    for _ in range(max_steps):
-        replaced = False
-        for i, ch in enumerate(current):
-            if ch in self.VN:
-                production = random.choice(self.P[ch])
-                current = current[:i] + production + current[i + 1:]
-                replaced = True
-                break
-        if not replaced:
-            break
-
-    return current
-```
-
-**Grammar to FA Conversion** — `to_finite_automaton()` iterates over every production rule and builds the transition dictionary. It handles two cases: rules of the form `X → aY` (transition to another non-terminal state) and rules of the form `X → a` (transition to the dedicated final state `F`).
-
-```python
-def to_finite_automaton(self):
-    states = set(self.VN)
-    states.add('F')
-    transitions = {}
-
-    for non_terminal, productions in self.P.items():
-        for production in productions:
-            if len(production) == 1 and production in self.VT:
-                # X → a  →  go to final state
-                transitions.setdefault(non_terminal, {})[production] = 'F'
-            elif len(production) == 2:
-                # X → aY  →  go to state Y
-                terminal, next_state = production[0], production[1]
-                transitions.setdefault(non_terminal, {})[terminal] = next_state
-
-    return FiniteAutomaton(states, set(self.VT), transitions, self.start, {'F'})
-```
-
-### FiniteAutomaton Class
-
-**String Acceptance** — `string_belong_to_language()` walks through each character of the input, follows transitions, and returns `True` only if the automaton ends in a final state.
-
-```python
-def string_belong_to_language(self, input_string):
-    if not input_string:
-        return self.q0 in self.F
-
-    current_state = self.q0
-
-    for char in input_string:
-        if char not in self.Sigma:
-            return False
-        if current_state not in self.delta:
-            return False
-        if char not in self.delta[current_state]:
-            return False
-        current_state = self.delta[current_state][char]
-
-    return current_state in self.F
-```
-
-**Step-by-step Trace** — `trace_string()` prints each transition as it happens, making it easy to follow exactly why a string is accepted or rejected.
-
-```python
-def trace_string(self, input_string):
-    current_state = self.q0
-    print(f"Start: {current_state}")
-
-    for char in input_string:
-        if current_state not in self.delta or char not in self.delta[current_state]:
-            print(f"  No transition from {current_state} on '{char}' - REJECT")
-            return
-        next_state = self.delta[current_state][char]
-        print(f"  Read '{char}': {current_state} → {next_state}")
-        current_state = next_state
-
-    if current_state in self.F:
-        print(f"End state {current_state} is in F - ACCEPT")
-    else:
-        print(f"End state {current_state} is not in F - REJECT")
-```
-
-
-## Testing
-
-### Quick Reference
-
-**Should ACCEPT** (match pattern `a(ba)*abb`):
-- `aabb` — minimum valid string
-- `abaabb` — one loop
-- `ababaabb` — two loops
-
-**Should REJECT:**
-- `ab` — too short, missing final `b`
-- `aaab` — ends with single `b`
-- `ba` — starts with `b`
-- `abb` — doesn't follow the pattern
-- empty string
-
-### Sample Output
+The `RegexParser` class uses **recursive descent** to convert a pattern string
+into a tree of four node types:
 
 ```
-=== Generated Strings ===
-1. aabb
-2. abaabb
-3. aabb
-4. ababaabb
-5. abaabb
+Literal       — a single character  →  emit it verbatim
+Alternation   — (a|b|c)            →  pick one branch randomly
+Concatenation — abc                →  emit all parts in sequence
+Repetition    — a*, a+, a?, a{n}   →  repeat child node N times
+```
 
-Testing generated strings:
-  'aabb':     ✓ ACCEPTED
-  'abaabb':   ✓ ACCEPTED
-  'aabb':     ✓ ACCEPTED
-  'ababaabb': ✓ ACCEPTED
-  'abaabb':   ✓ ACCEPTED
+Precedence is encoded in the call chain (low → high):
 
-Testing additional strings:
-  'aabb':     ✓ ACCEPTED  (expected: ACCEPT)  ✓
-  'abaabb':   ✓ ACCEPTED  (expected: ACCEPT)  ✓
-  'ab':       ✗ REJECTED  (expected: REJECT)  ✓
-  'aaab':     ✗ REJECTED  (expected: REJECT)  ✓
-  'ba':       ✗ REJECTED  (expected: REJECT)  ✓
-  '':         ✗ REJECTED  (expected: REJECT)  ✓
+```
+_alternation → _concatenation → _quantified → _atom
+```
+
+### 2. Generation → string
+
+The `RegexGenerator` walks the AST recursively:
+- **Literal** → return the character
+- **Alternation** → `random.choice()` among options, recurse
+- **Concatenation** → recurse on each item, join results
+- **Repetition** → `random.randint(min, max)`, recurse that many times
+
+Unbounded quantifiers (`*` and `+`) are capped at **5 repetitions**
+to prevent extremely long output.
+
+### 3. Tracing → step log (bonus)
+
+The `RegexTracer` class mirrors the generator but logs every decision:
+
+```
+Step  1: Concatenation of 4 parts
+Step  2: Alternation — chose option 2 of 2
+Step  3: Emit literal 'b'
+Step  6: Repetition [1..5] — chose 4 repeat(s)
+...
 ```
 
 ---
 
-## Challenges Encountered
+## Supported Syntax
 
-### Challenge 1 — Handling terminal-only productions
+| Syntax | Meaning | Example |
+|--------|---------|---------|
+| `a` | Literal character | `a` matches `a` |
+| `(a\|b)` | Alternation — pick one | `(x\|y\|z)` |
+| `ab` | Concatenation — both in order | `PQ` |
+| `a*` | Zero or more (max 5) | `E*` |
+| `a+` | One or more (max 5) | `Z+` |
+| `a?` | Zero or one | `G?` |
+| `a{n}` | Exactly n times | `(3\|4){5}` |
+| `a^n` | Exactly n times (assignment notation) | `(3\|4)^5` |
 
-Rules like `C → b` don't point to another non-terminal, so the standard `X → aY` conversion doesn't apply. Initially this rule was skipped, which meant strings ending correctly (reaching state `C` and reading `b`) were rejected because no transition to `F` existed.
+---
 
-The fix was a separate check: if a production has only a terminal with no following non-terminal, create a transition directly to the final state `F`.
+## Usage
 
-```python
-if len(production) == 1 and production in self.VT:
-    transitions.setdefault(non_terminal, {})[production] = 'F'
+### Run the built-in demo
+
+```bash
+python main.py
 ```
 
-### Challenge 2 — Infinite loops in string generation
+Output:
+```
+============================================================
+  Lab 4 — Variant 1  |  Regular Expression Generator
+============================================================
 
-Some productions loop back to earlier states (e.g. `A → bS`), so the generator could theoretically run forever on an unlucky sequence of random choices. The fix was a `max_steps=50` counter — if the limit is hit, the current string is discarded and the caller retries.
+Pattern : (a|b)(c|d)E+G?
+Samples : ['acEEE', 'acE', 'bcE', 'acEEEEE', 'adEEG', 'bcEEG']
+
+Pattern : P(Q|R|S)T(UV|W|X)*Z+
+Samples : ['PRTUVUVZZZ', 'PQTZZZZ', 'PQTWXZZZ', ...]
+
+Pattern : 1(0|1)*2(3|4){5}36
+Samples : ['11124434336', '124433436', '10101124334436', ...]
+```
+
+### Use as a module
 
 ```python
-def generate_string(self, max_steps=50):
-    current = self.start
-    for _ in range(max_steps):
-        ...
-    return current  # returned as-is if limit hit; caller checks for non-terminals
+from regex_generator import generate_string, generate_with_trace
+
+# Generate one string
+s = generate_string("(a|b)(c|d)E+G?")
+print(s)   # e.g. 'adEEG'
+
+# Generate with a fixed seed for reproducibility
+s = generate_string("P(Q|R|S)T(UV|W|X)*Z+", seed=42)
+print(s)   # always the same string
+
+# Generate with a step-by-step trace
+result, steps = generate_with_trace("(a|b)(c|d)E+G?", seed=7)
+print(result)
+for step in steps:
+    print(step)
 ```
 
 ---
 
-## Conclusions
+## Implementation Notes
 
-This lab demonstrated the direct equivalence between regular grammars and finite automata. Every production rule maps cleanly to a state transition, and the resulting FA accepts exactly the strings the grammar generates. Implementing both the generator and the validator together made it easy to verify correctness — every string the grammar produced was accepted by the FA, and manually crafted invalid strings were correctly rejected.
+### Why a custom parser instead of Python's `re` module?
+
+Python's `re` module can *match* strings against patterns but cannot *generate*
+strings from them. Building the AST ourselves gives full control over the
+generation process and makes the step tracer possible.
+
+### Naming: `Repetition.max_rep` vs actual cap
+
+The `max_rep` field stores the parsed upper bound. For `*` and `+` this is set
+to `MAX_REPEAT` (5) at parse time. For `{n}` and `^n` it stores the exact
+count `n`. The generator always calls `random.randint(min_rep, max_rep)`, so
+`{5}` always produces exactly 5 and `*` produces 0–5.
+
+### Superscript notation `^n`
+
+The assignment uses `(3|4)^5` to mean "exactly 5 repetitions". Standard regex
+engines treat `^` as a start-of-line anchor. The parser handles this by
+detecting `^` followed by digits in the quantifier position and mapping it to
+`Repetition(node, n, n)`, identical to `{n}`.
 
 ---
 
-## References
+## Requirements
 
-- Course materials: Formal Languages & Finite Automata
-- Hopcroft, Motwani, Ullman — *Introduction to Automata Theory, Languages, and Computation*
+- Python 3.7+
+- No external dependencies (standard library only)
