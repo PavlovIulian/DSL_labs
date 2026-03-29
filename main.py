@@ -5,9 +5,9 @@ from generator import generate_string, generate_with_trace
 
 # ── Variant 1 patterns ────────────────────────────────────────────
 PATTERNS = [
-    "(a|b)(c|d)E+G?",
-    "P(Q|R|S)T(UV|W|X)*Z+",
-    "1(0|1)*2(3|4){5}36",
+"(a|b)(c|d)E^+G?"
+"P(Q|R|S)T(UV|W|X)^*Z^+"
+"1(0|1)^*2(3|4)^5*36"
 ]
 
 
