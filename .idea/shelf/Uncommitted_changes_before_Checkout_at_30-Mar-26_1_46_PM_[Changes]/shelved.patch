@@ -1,0 +1,41 @@
+Index: main.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import random\r\n\r\nfrom parser import RegexParser\r\nfrom generator import generate_string, generate_with_trace\r\n\r\n# ── Variant 1 patterns ────────────────────────────────────────────\r\nPATTERNS = [\r\n\"(a|b)(c|d)E^+G?\"\r\n\"P(Q|R|S)T(UV|W|X)^*Z^+\"\r\n\"1(0|1)^*2(3|4)^5*36\"\r\n]\r\n\r\n\r\ndef main():\r\n    random.seed(42)\r\n\r\n    print(\"=\" * 60)\r\n    print(\"  Lab 4 — Variant 1  |  Regular Expression Generator\")\r\n    print(\"=\" * 60)\r\n\r\n    # ── Sample outputs ────────────────────────────────────────────\r\n    for pattern in PATTERNS:\r\n        ast = RegexParser(pattern).parse()\r\n        samples = [generate_string(ast) for _ in range(6)]\r\n        print(f\"\\nPattern : {pattern}\")\r\n        print(f\"Samples : {samples}\")\r\n\r\n    # ── Step-by-step traces ───────────────────────────────────────\r\n    print(\"\\n\" + \"=\" * 60)\r\n    print(\"  Processing traces (one example per pattern)\")\r\n    print(\"=\" * 60)\r\n\r\n    for pattern in PATTERNS:\r\n        ast = RegexParser(pattern).parse()\r\n        result, steps = generate_with_trace(ast, seed=7)\r\n        print(f\"\\nPattern : {pattern}\")\r\n        print(f\"Result  : {result}\")\r\n        print(\"Trace   :\")\r\n        for step in steps:\r\n            print(step)\r\n\r\n\r\nif __name__ == \"__main__\":\r\n    main()\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/main.py b/main.py
+--- a/main.py	(revision c1fa895786995276879d055db3c168b72ab6a484)
++++ b/main.py	(date 1774867511855)
+@@ -5,9 +5,9 @@
+ 
+ # ── Variant 1 patterns ────────────────────────────────────────────
+ PATTERNS = [
+-"(a|b)(c|d)E^+G?"
+-"P(Q|R|S)T(UV|W|X)^*Z^+"
+-"1(0|1)^*2(3|4)^5*36"
++ "(a|b)(c|d)E^+G?\n"
++ "P(Q|R|S)T(UV|W|X)^*Z^+\n"
++ "1(0|1)^*2(3|4)^5*36"
+ ]
+ 
+ 
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"Black\">\r\n    <option name=\"sdkName\" value=\"Python 3.11\" />\r\n  </component>\r\n  <component name=\"ProjectRootManager\" version=\"2\" project-jdk-name=\"Python 3.13 (DSL_labs)\" project-jdk-type=\"Python SDK\" />\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/misc.xml b/.idea/misc.xml
+--- a/.idea/misc.xml	(revision c1fa895786995276879d055db3c168b72ab6a484)
++++ b/.idea/misc.xml	(date 1774867551522)
+@@ -3,5 +3,5 @@
+   <component name="Black">
+     <option name="sdkName" value="Python 3.11" />
+   </component>
+-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13 (DSL_labs)" project-jdk-type="Python SDK" />
++  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (DSL_labs3)" project-jdk-type="Python SDK" />
+ </project>
+\ No newline at end of file
