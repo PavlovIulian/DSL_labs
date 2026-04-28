@@ -1,8 +1,8 @@
 # Lab 4 – Parser & Building an Abstract Syntax Tree
 
 **Course:** Formal Languages & Finite Automata  
-**Student:** Strunga Daniel-Ioan  
-**Group:** FAF-242
+**Student:** Pavlov Iulian
+**Group:** FAF-241
 
 ---
 
